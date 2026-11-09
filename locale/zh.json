@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "旧回放重置",
+    "description": "处理 AgentRouter Responses 旧会话续聊时的资源绑定报错；手动重置旧回放，保留聊天历史。"
+  }
+}

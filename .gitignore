@@ -1,0 +1,39 @@
+# Dependencies and generated packages
+node_modules/
+artifacts/
+dist/
+coverage/
+*.tgz
+*.log
+*.tsbuildinfo
+
+# Machine-local configuration and credentials
+.env
+.env.*
+!.env.example
+.local/
+*.local.*
+.dsh/
+.npmrc
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+credentials/
+
+# Private diagnostics: never commit live sessions or desktop captures
+before-reset*.json
+*session-hashes*.json
+*.jsonl
+*.jsonl.zst
+*.jsonl.zstd
+screenshots/
+*window*.png
+dsh-*.png
+
+# Editor and OS state
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

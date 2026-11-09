@@ -1,0 +1,19 @@
+name: Unit tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm run test:unit
+      - run: npm run check:package
+# Full host tests intentionally require a local, supported DSH installation.
+# Never upload a private DSH profile, session log, or API credential to CI.

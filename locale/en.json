@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Replay reset",
+    "description": "Helps recover AgentRouter Responses chats blocked by old replay state bound to another upstream resource, without deleting chat history."
+  }
+}
