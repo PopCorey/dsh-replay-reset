@@ -5,7 +5,7 @@ import {configuredHostRoot} from './host-path.mjs';
 const cwd=fileURLToPath(new URL('..',import.meta.url));
 const unit=process.argv.includes('--unit');
 const env={...process.env};
-const files=unit?['bridge-unit','client','package','policy']:['bridge-unit','client','coordinator','host','package','policy','server'];
+const files=unit?['bridge-unit','client','package','policy','release']:['bridge-unit','client','coordinator','host','package','policy','release','server'];
 let executable=process.execPath;
 const args=[];
 if(unit) env.DSH_UNIT_ONLY='1';

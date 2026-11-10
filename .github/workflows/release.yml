@@ -17,25 +17,63 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install OIDC-capable npm
+        run: npm install --global npm@11.17.0 --ignore-scripts
       - name: Verify tag matches package version
         run: node --input-type=module -e "import fs from 'node:fs'; const {version} = JSON.parse(fs.readFileSync('package.json', 'utf8')); if (process.env.GITHUB_REF_NAME !== 'v' + version) throw new Error('Tag/package version mismatch');"
       - run: npm run test:unit
       - name: Build package without lifecycle scripts
         run: |
           mkdir -p artifacts
-          npm pack --ignore-scripts --pack-destination artifacts
-      - name: Create GitHub Release
+          npm pack --ignore-scripts --pack-destination artifacts --json > "$RUNNER_TEMP/npm-pack.json"
+      - name: Check npm version and package integrity
+        id: npm
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          const [pack] = JSON.parse(fs.readFileSync(path.join(process.env.RUNNER_TEMP, 'npm-pack.json'), 'utf8'));
+          const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(pack.name)}/${encodeURIComponent(pack.version)}`, {signal: AbortSignal.timeout(30000)});
+          let exists = false;
+          if (response.status === 200) {
+            const published = await response.json();
+            if (published.dist?.integrity !== pack.integrity) throw new Error('Published version has different contents; bump the version instead of overwriting it.');
+            exists = true;
+          } else if (response.status !== 404) {
+            throw new Error(`Registry check failed: HTTP ${response.status}`);
+          }
+          const tag = pack.version.includes('-') ? 'next' : 'latest';
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `exists=${exists}\ntag=${tag}\n`);
+          console.log(`${pack.name}@${pack.version}: ${exists ? 'identical version already published' : 'ready to publish'} (${tag})`);
+          NODE
+      - name: Publish to npm with trusted publishing
+        if: steps.npm.outputs.exists != 'true'
+        env:
+          NPM_DIST_TAG: ${{ steps.npm.outputs.tag }}
+        run: npm publish "./artifacts/dsh-replay-reset-${GITHUB_REF_NAME#v}.tgz" --ignore-scripts --access public --tag "$NPM_DIST_TAG" --registry https://registry.npmjs.org/ --provenance
+      - name: Create GitHub Release if missing
         env:
           GH_TOKEN: ${{ github.token }}
+          NPM_DIST_TAG: ${{ steps.npm.outputs.tag }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            "artifacts/dsh-replay-reset-${GITHUB_REF_NAME#v}.tgz" \
-            --repo "$GITHUB_REPOSITORY" \
-            --verify-tag \
-            --title "$GITHUB_REF_NAME" \
-            --notes-file CHANGELOG.md
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "GitHub Release already exists; leaving it unchanged."
+          else
+            flags=()
+            if [ "$NPM_DIST_TAG" = next ]; then flags+=(--prerelease); fi
+            gh release create "$GITHUB_REF_NAME" \
+              "artifacts/dsh-replay-reset-${GITHUB_REF_NAME#v}.tgz" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file CHANGELOG.md \
+              "${flags[@]}"
+          fi
